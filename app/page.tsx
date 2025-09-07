@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { LoginButton } from '@/components/LoginButton'
 import { UserForm } from '@/components/UserForm'
+import { ProfileSection } from '@/components/ProfileSection'
 import { WorldMap } from '@/components/WorldMap'
 
 export default async function Home() {
@@ -26,6 +27,8 @@ export default async function Home() {
       </div>
     )
   }
+
+  console.log(session)
 
   // Check if user has completed their profile
   const profile = await prisma.profile.findUnique({
@@ -72,20 +75,10 @@ export default async function Home() {
             </div>
           </div>
         ) : (
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                CCF Members Around the World
-              </h2>
-              <p className="text-gray-600">
-                {profiles.length} members have shared their locations
-              </p>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <WorldMap profiles={profiles} />
-            </div>
-          </div>
+          <ProfileSection 
+            currentUserProfile={profile} 
+            allProfiles={profiles} 
+          />
         )}
       </div>
     </div>
