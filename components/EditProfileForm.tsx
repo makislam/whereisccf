@@ -5,31 +5,44 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { LocationAutocomplete } from './LocationAutocomplete'
 
-export function UserForm() {
+interface Profile {
+  id: string
+  name: string
+  program: string
+  graduationYear: string | null
+  currentTerm: string | null
+  location: string
+  latitude: number
+  longitude: number
+}
+
+interface EditProfileFormProps {
+  profile: Profile
+  onCancel: () => void
+}
+
+export function EditProfileForm({ profile, onCancel }: EditProfileFormProps) {
   const { data: session } = useSession()
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [coordinates, setCoordinates] = useState<{ lat: number; lon: number } | null>(null)
+  const [coordinates, setCoordinates] = useState<{ lat: number; lon: number }>({
+    lat: profile.latitude,
+    lon: profile.longitude
+  })
   const [formData, setFormData] = useState({
-    name: session?.user?.name || '',
-    program: '',
-    graduationYear: '',
-    currentTerm: '',
-    location: '',
+    name: profile.name,
+    program: profile.program,
+    graduationYear: profile.graduationYear || '',
+    currentTerm: profile.currentTerm || '',
+    location: profile.location,
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!coordinates) {
-      alert('Please select a valid location from the dropdown.')
-      return
-    }
-    
     setIsSubmitting(true)
 
     try {
-      // Submit the form with pre-validated coordinates
+      // Submit the form with validated coordinates
       const response = await fetch('/api/profile', {
         method: 'POST',
         headers: {
@@ -44,8 +57,9 @@ export function UserForm() {
 
       if (response.ok) {
         router.refresh()
+        onCancel() // Close the edit form
       } else {
-        alert('Failed to save profile. Please try again.')
+        alert('Failed to update profile. Please try again.')
       }
     } catch (error) {
       console.error('Error:', error)
@@ -150,13 +164,23 @@ export function UserForm() {
         </p>
       </div>
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-md transition-colors"
-      >
-        {isSubmitting ? 'Saving...' : 'Save Profile'}
-      </button>
+      <div className="flex space-x-4">
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-md transition-colors"
+        >
+          {isSubmitting ? 'Updating...' : 'Update Profile'}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={isSubmitting}
+          className="flex-1 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-md transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
     </form>
   )
 }

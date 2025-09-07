@@ -1,6 +1,6 @@
 'use client'
 
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -15,9 +15,22 @@ if (typeof window !== 'undefined') {
   })
 }
 
-// Create highlighted marker icon safely
+// Create icons safely
+const createDefaultIcon = () => {
+  if (typeof window === 'undefined') return undefined
+  return new L.Icon({
+    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+  })
+}
+
 const createHighlightedIcon = () => {
-  if (typeof window === 'undefined') return null
+  if (typeof window === 'undefined') return undefined
   return new L.Icon({
     iconRetinaUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
@@ -27,52 +40,6 @@ const createHighlightedIcon = () => {
     popupAnchor: [1, -34],
     shadowSize: [41, 41]
   })
-}
-
-// Component to control map view without re-rendering
-function MapController({ center, zoom }: { center: [number, number], zoom: number }) {
-  const map = useMap()
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
-  
-  useEffect(() => {
-    // Clear any existing timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-    }
-    
-    // Delay the map update to avoid conflicts
-    timeoutRef.current = setTimeout(() => {
-      try {
-        // Check if map exists and has a valid container
-        if (map && map.getContainer && typeof map.getContainer === 'function') {
-          const container = map.getContainer()
-          if (container && container.parentNode && !container.classList?.contains('leaflet-container-removed')) {
-            map.setView(center, zoom, { animate: true, duration: 1 })
-          }
-        }
-      } catch (error) {
-        // Silently handle errors during component transitions
-        console.warn('Map setView error:', error)
-      }
-    }, 100)
-    
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
-    }
-  }, [map, center, zoom])
-  
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
-    }
-  }, [])
-  
-  return null
 }
 
 interface Profile {
@@ -90,7 +57,7 @@ interface Profile {
   }
 }
 
-interface MapProps {
+interface MapComponentProps {
   profiles: Profile[]
   selectedProfile?: Profile | null
   mapCenter?: [number, number] | null
@@ -98,11 +65,9 @@ interface MapProps {
 
 // Function to offset markers for the same location
 function offsetMarkersForSameLocation(profiles: Profile[]): (Profile & { offsetLat: number; offsetLng: number })[] {
-  // Group profiles by location (using lat/lng with some precision to account for slight differences)
   const locationGroups: { [key: string]: Profile[] } = {}
   
   profiles.forEach(profile => {
-    // Round to 4 decimal places to group nearby locations (roughly ~10m precision)
     const locationKey = `${profile.latitude.toFixed(4)},${profile.longitude.toFixed(4)}`
     if (!locationGroups[locationKey]) {
       locationGroups[locationKey] = []
@@ -114,28 +79,24 @@ function offsetMarkersForSameLocation(profiles: Profile[]): (Profile & { offsetL
   
   Object.values(locationGroups).forEach(group => {
     if (group.length === 1) {
-      // Single person at this location - no offset needed
       offsetProfiles.push({
         ...group[0],
         offsetLat: group[0].latitude,
         offsetLng: group[0].longitude
       })
     } else {
-      // Multiple people at same location - arrange in a circle
-      const radius = 0.01 // Roughly 1km offset radius
+      const radius = 0.01
       const centerLat = group[0].latitude
       const centerLng = group[0].longitude
       
       group.forEach((profile, index) => {
         if (index === 0) {
-          // First person stays at the original location
           offsetProfiles.push({
             ...profile,
             offsetLat: centerLat,
             offsetLng: centerLng
           })
         } else {
-          // Arrange others in a circle around the center
           const angle = (2 * Math.PI * index) / group.length
           const offsetLat = centerLat + radius * Math.sin(angle)
           const offsetLng = centerLng + radius * Math.cos(angle)
@@ -153,32 +114,81 @@ function offsetMarkersForSameLocation(profiles: Profile[]): (Profile & { offsetL
   return offsetProfiles
 }
 
-export default function Map({ profiles, selectedProfile, mapCenter }: MapProps) {
-  const [highlightedIcon, setHighlightedIcon] = useState<L.Icon | null>(null)
-  
-  // Initialize icon on client side
+export default function MapComponent({ profiles, selectedProfile, mapCenter }: MapComponentProps) {
+  const mapRef = useRef<L.Map | null>(null)
+  const [icons, setIcons] = useState<{ default: L.Icon | null; highlighted: L.Icon | null }>({
+    default: null,
+    highlighted: null
+  })
+
+  // Initialize icons on client side only
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const icon = createHighlightedIcon()
-      setHighlightedIcon(icon)
+      setIcons({
+        default: createDefaultIcon() || null,
+        highlighted: createHighlightedIcon() || null
+      })
+    }
+  }, [])
+
+  // Handle map view changes with proper error handling
+  useEffect(() => {
+    if (mapRef.current && mapCenter) {
+      try {
+        // Check if map is still valid before attempting operations
+        const map = mapRef.current
+        if (map && map.getContainer && typeof map.getContainer === 'function') {
+          const container = map.getContainer()
+          if (container && container.parentNode) {
+            map.setView(mapCenter, 10, { animate: true })
+          }
+        }
+      } catch (error) {
+        console.warn('Could not set map view:', error)
+      }
+    }
+  }, [mapCenter])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (mapRef.current) {
+        try {
+          mapRef.current.remove()
+        } catch (error) {
+          // Silently handle cleanup errors
+        }
+        mapRef.current = null
+      }
     }
   }, [])
 
   const offsetProfiles = offsetMarkersForSameLocation(profiles)
   
-  // Determine map center and zoom
-  const center: [number, number] = mapCenter || [20, 0]
-  const zoom = mapCenter ? 10 : 2
-  
+  const center: [number, number] = [20, 0]
+  const zoom = 2
+
+  // Don't render until icons are loaded
+  if (!icons.default || !icons.highlighted) {
+    return (
+      <div className="h-full w-full bg-gray-200 rounded-lg flex items-center justify-center">
+        <p>Loading map...</p>
+      </div>
+    )
+  }
+
   return (
     <MapContainer
-      center={[20, 0]} // Initial center, will be controlled by MapController
-      zoom={2} // Initial zoom, will be controlled by MapController
+      center={center}
+      zoom={zoom}
       style={{ height: '100%', width: '100%' }}
       className="rounded-lg"
-      key={`map-${profiles.length}-${selectedProfile?.id || 'none'}`} // Force remount when data changes significantly
+      ref={(map) => {
+        if (map) {
+          mapRef.current = map
+        }
+      }}
     >
-      <MapController center={center} zoom={zoom} />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -186,11 +196,13 @@ export default function Map({ profiles, selectedProfile, mapCenter }: MapProps) 
       
       {offsetProfiles.map((profile) => {
         const isSelected = selectedProfile?.id === profile.id
+        const icon = isSelected ? icons.highlighted : icons.default
+        
         return (
           <Marker
-            key={`${profile.id}-${isSelected ? 'selected' : 'normal'}`}
+            key={profile.id}
             position={[profile.offsetLat, profile.offsetLng]}
-            icon={isSelected && highlightedIcon ? highlightedIcon : undefined}
+            icon={icon || undefined}
           >
             <Popup>
               <div className="text-center">

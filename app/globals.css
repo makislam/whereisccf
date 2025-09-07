@@ -12,3 +12,12 @@
 .leaflet-control-container .leaflet-routing-container-hide {
   display: none;
 }
+
+/* Prevent Leaflet errors during component transitions */
+.leaflet-container.leaflet-touch {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.leaflet-container-removed {
+  display: none !important;
+}
