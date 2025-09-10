@@ -41,11 +41,15 @@ export default async function Home() {
       user: {
         select: {
           name: true,
-          image: true
+          image: true,
+          email: true
         }
       }
     }
   })
+
+  // Debug: Log all profiles to check email data
+  console.log('All profiles:', profiles.map(p => ({ name: p.name, email: p.user.email })))
 
   return (
     <div className="min-h-screen bg-gray-50">

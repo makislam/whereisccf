@@ -15,13 +15,15 @@ if (typeof window !== 'undefined') {
   })
 }
 
-// Create highlighted marker icon safely
-const createHighlightedIcon = () => {
+// Create colored default marker
+const createPinDropIcon = (isSelected: boolean = false) => {
   if (typeof window === 'undefined') return null
+  
+  const color = isSelected ? 'red' : 'blue'
+  
   return new L.Icon({
-    iconRetinaUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+    iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
@@ -87,6 +89,7 @@ interface Profile {
   user: {
     name: string | null
     image: string | null
+    email: string | null
   }
 }
 
@@ -154,13 +157,12 @@ function offsetMarkersForSameLocation(profiles: Profile[]): (Profile & { offsetL
 }
 
 export default function Map({ profiles, selectedProfile, mapCenter }: MapProps) {
-  const [highlightedIcon, setHighlightedIcon] = useState<L.Icon | null>(null)
+  const [isIconsLoaded, setIsIconsLoaded] = useState(false)
   
-  // Initialize icon on client side
+  // Initialize icons on client side
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const icon = createHighlightedIcon()
-      setHighlightedIcon(icon)
+      setIsIconsLoaded(true)
     }
   }, [])
 
@@ -169,6 +171,15 @@ export default function Map({ profiles, selectedProfile, mapCenter }: MapProps) 
   // Determine map center and zoom
   const center: [number, number] = mapCenter || [20, 0]
   const zoom = mapCenter ? 10 : 2
+
+  // Don't render until icons are loaded to prevent hydration mismatch
+  if (!isIconsLoaded) {
+    return (
+      <div className="h-full w-full bg-gray-200 rounded-lg flex items-center justify-center">
+        <p>Loading map...</p>
+      </div>
+    )
+  }
   
   return (
     <MapContainer
@@ -186,14 +197,31 @@ export default function Map({ profiles, selectedProfile, mapCenter }: MapProps) 
       
       {offsetProfiles.map((profile) => {
         const isSelected = selectedProfile?.id === profile.id
+        const pinDropIcon = createPinDropIcon(isSelected)
+        
         return (
           <Marker
             key={`${profile.id}-${isSelected ? 'selected' : 'normal'}`}
             position={[profile.offsetLat, profile.offsetLng]}
-            icon={isSelected && highlightedIcon ? highlightedIcon : undefined}
+            icon={pinDropIcon || undefined}
           >
             <Popup>
               <div className="text-center">
+                <div className="flex items-center justify-center mb-3">
+                  {profile.user.image ? (
+                    <img 
+                      src={profile.user.image} 
+                      alt={profile.name}
+                      className="w-16 h-16 rounded-full border-2 border-blue-500"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-gray-300 border-2 border-blue-500 flex items-center justify-center">
+                      <svg className="w-8 h-8 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
                 <h3 className="font-semibold text-lg">{profile.name}</h3>
                 <p className="text-gray-600">{profile.program}</p>
                 {profile.graduationYear && (
@@ -203,6 +231,20 @@ export default function Map({ profiles, selectedProfile, mapCenter }: MapProps) 
                   <p className="text-gray-500">Current: {profile.currentTerm}</p>
                 )}
                 <p className="text-gray-500 mt-1">{profile.location}</p>
+                {profile.user.email && (
+                  <div className="mt-3">
+                    <a 
+                      href={`mailto:${profile.user.email}?subject=Hi from Where is CCF!&body=Hi ${profile.name},%0D%0A%0D%0AI found your profile on Where is CCF and wanted to reach out!`}
+                      className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                      title={`Send an email to ${profile.name}`}
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      Contact {profile.name.split(' ')[0]}
+                    </a>
+                  </div>
+                )}
                 {isSelected && (
                   <p className="text-red-600 font-medium mt-2">📍 Selected from search</p>
                 )}

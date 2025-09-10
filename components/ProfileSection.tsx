@@ -5,18 +5,7 @@ import { EditProfileForm } from './EditProfileForm'
 import { PeopleSearch } from './PeopleSearch'
 import { WorldMap } from './WorldMapNew'
 
-interface CurrentUserProfile {
-  id: string
-  name: string
-  program: string
-  graduationYear: string | null
-  currentTerm: string | null
-  location: string
-  latitude: number
-  longitude: number
-}
-
-interface AllProfilesProfile {
+type AllProfilesProfile = {
   id: string
   name: string
   program: string
@@ -28,7 +17,19 @@ interface AllProfilesProfile {
   user: {
     name: string | null
     image: string | null
+    email: string | null
   }
+}
+
+interface CurrentUserProfile {
+  id: string
+  name: string
+  program: string
+  graduationYear: string | null
+  currentTerm: string | null
+  location: string
+  latitude: number
+  longitude: number
 }
 
 interface ProfileSectionProps {

@@ -1,0 +1,16 @@
+<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="8" cy="8" r="8" fill="#2d2d2d"/>
+  
+  <!-- UWCCF Logo (simplified for small size) -->
+  <g transform="translate(8, 8) scale(0.6)">
+    <!-- Cylindrical shape -->
+    <ellipse cx="0" cy="-4" rx="5" ry="2" fill="none" stroke="white" stroke-width="1"/>
+    <ellipse cx="0" cy="2" rx="5" ry="2" fill="none" stroke="white" stroke-width="1"/>
+    <line x1="-5" y1="-4" x2="-5" y2="2" stroke="white" stroke-width="1"/>
+    <line x1="5" y1="-4" x2="5" y2="2" stroke="white" stroke-width="1"/>
+    <path d="M -5,-4 Q 0,-1 5,-4" fill="none" stroke="white" stroke-width="1"/>
+  </g>
+  
+  <!-- Simplified text -->
+  <text x="8" y="13" font-family="Arial, sans-serif" font-size="3" fill="white" text-anchor="middle" font-weight="bold">ccf</text>
+</svg>
